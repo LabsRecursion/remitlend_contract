@@ -15,18 +15,22 @@ export interface WalletContextType {
   networkPassphrase?: string;
   isPending: boolean;
   signTransaction?: typeof wallet.signTransaction;
+  connected: boolean;
+  publicKey?: string;
 }
 
 const initialState = {
   address: undefined,
   network: undefined,
   networkPassphrase: undefined,
+  connected: false,
+  publicKey: undefined,
 };
 
 const POLL_INTERVAL = 1000;
 
 export const WalletContext = // eslint-disable-line react-refresh/only-export-components
-  createContext<WalletContextType>({ isPending: true });
+  createContext<WalletContextType>({ isPending: true, connected: false });
 
 export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   const [state, setState] =
@@ -75,6 +79,8 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
         address: walletAddr,
         network: walletNetwork,
         networkPassphrase: passphrase,
+        connected: true,
+        publicKey: walletAddr,
       });
     }
 
@@ -101,7 +107,12 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
           n.networkPassphrase !== state.networkPassphrase
         ) {
           storage.setItem("walletAddress", a.address);
-          updateState({ ...a, ...n });
+          updateState({
+            ...a,
+            ...n,
+            connected: !!a.address,
+            publicKey: a.address,
+          });
         }
       } catch (e) {
         // If `getNetwork` or `getAddress` throw errors... sign the user out???

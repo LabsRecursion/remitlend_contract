@@ -1,0 +1,775 @@
+.container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 2.5rem;
+  min-height: calc(100vh - 200px);
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 4rem;
+}
+
+.header h1 {
+  font-size: 3rem;
+  color: #1a2a4d;
+  margin-bottom: 1rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.header p {
+  color: #6c757d;
+  font-size: 1.25rem;
+  font-weight: 400;
+}
+
+.progressSteps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4rem;
+  position: relative;
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  position: relative;
+  z-index: 2;
+}
+
+.stepNumber {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: #e9ecef;
+  color: #6c757d;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: 800;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 3px solid transparent;
+  position: relative;
+}
+
+.stepNumber::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  background: inherit;
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+
+.activeStep .stepNumber {
+  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+  color: white;
+  box-shadow: 0 8px 20px rgba(0, 123, 255, 0.4);
+  transform: scale(1.1);
+}
+
+.activeStep .stepNumber::after {
+  opacity: 0.2;
+}
+
+.completedStep .stepNumber {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  color: white;
+  box-shadow: 0 6px 16px rgba(40, 167, 69, 0.3);
+}
+
+.step p {
+  color: #6c757d;
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.activeStep p {
+  color: #007bff;
+  font-weight: 700;
+}
+
+.completedStep p {
+  color: #28a745;
+}
+
+.progressLine {
+  width: 120px;
+  height: 3px;
+  background: #e9ecef;
+  margin: 0 -10px;
+  position: relative;
+  z-index: 1;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progressLine::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #28a745 0%, #20c997 100%);
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.completedStep + .progressLine::after {
+  width: 100%;
+}
+
+.content {
+  display: flex;
+  justify-content: center;
+}
+
+.card {
+  background: white;
+  padding: 3.5rem;
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  width: 100%;
+  max-width: 750px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.card h2 {
+  color: #1a2a4d;
+  font-size: 2.2rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.description {
+  color: #6c757d;
+  line-height: 1.8;
+  text-align: center;
+  margin-bottom: 3rem;
+  font-size: 1.1rem;
+}
+
+.providerGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+  margin-bottom: 3rem;
+}
+
+.providerCard {
+  padding: 2.5rem;
+  border: 2px solid #e9ecef;
+  border-radius: 16px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.providerCard:hover {
+  border-color: #007bff;
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 123, 255, 0.15);
+}
+
+.selectedProvider {
+  border-color: #007bff;
+  background: linear-gradient(
+    135deg,
+    rgba(0, 123, 255, 0.05) 0%,
+    rgba(0, 86, 179, 0.05) 100%
+  );
+  box-shadow: 0 4px 16px rgba(0, 123, 255, 0.2);
+}
+
+.providerLogo {
+  font-size: 3.5rem;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1));
+}
+
+.providerName {
+  font-weight: 700;
+  color: #1a2a4d;
+  text-align: center;
+  font-size: 1.05rem;
+}
+
+.primaryButton {
+  width: 100%;
+  padding: 1.4rem 2.5rem;
+  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 1.15rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+}
+
+.primaryButton:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 123, 255, 0.4);
+}
+
+.primaryButton:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.primaryButton:disabled {
+  background: #ced4da;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.nftCard {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 3rem;
+  border-radius: 20px;
+  color: white;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+}
+
+.nftCard::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  right: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.1) 0%,
+    transparent 70%
+  );
+  animation: pulse 8s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+}
+
+.scoreCircle {
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  border: 8px solid;
+  background: white;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  position: relative;
+}
+
+.scoreCircle::after {
+  content: "";
+  position: absolute;
+  inset: -12px;
+  border-radius: 50%;
+  background: inherit;
+  opacity: 0.3;
+  z-index: -1;
+}
+
+.scoreValue {
+  font-size: 4rem;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.scoreLabel {
+  font-size: 0.9rem;
+  color: #666;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 0.5rem;
+}
+
+.scoreExplanation {
+  background: white;
+  padding: 2rem;
+  border-radius: 16px;
+  margin-bottom: 2.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.scoreExplanation h4 {
+  color: #1a2a4d;
+  margin-bottom: 1rem;
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.scoreExplanation p {
+  color: #6c757d;
+  line-height: 1.8;
+  margin-bottom: 1rem;
+  font-size: 1.05rem;
+}
+
+.nextSteps {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.15) 0%,
+    rgba(255, 255, 255, 0.1) 100%
+  );
+  backdrop-filter: blur(10px);
+  padding: 2rem;
+  border-radius: 16px;
+  margin-bottom: 2.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  position: relative;
+  z-index: 1;
+}
+
+.nextSteps h3 {
+  color: white;
+  margin-bottom: 1.5rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.nextSteps ul {
+  list-style: none;
+  padding: 0;
+}
+
+.nextSteps li {
+  padding: 0.75rem 0;
+  color: rgba(255, 255, 255, 0.95);
+  position: relative;
+  padding-left: 2rem;
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
+.nextSteps li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  color: white;
+  font-weight: 800;
+  font-size: 1.2rem;
+  width: 28px;
+  height: 28px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.successIcon {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+  color: #28a745;
+}
+
+.successIcon svg {
+  width: 80px;
+  height: 80px;
+  filter: drop-shadow(0 4px 12px rgba(40, 167, 69, 0.3));
+}
+
+.connectPrompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 500px;
+  text-align: center;
+  gap: 1.5rem;
+  padding: 3rem;
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+}
+
+.connectPrompt svg {
+  color: #ffc107;
+  width: 64px;
+  height: 64px;
+}
+
+.connectPrompt h2 {
+  color: #1a2a4d;
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.connectPrompt p {
+  color: #6c757d;
+  font-size: 1.1rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .container {
+    padding: 1.5rem;
+  }
+
+  .header h1 {
+    font-size: 2rem;
+  }
+
+  .card {
+    padding: 2rem;
+  }
+
+  .providerGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .nftContent {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+}
+
+.providerGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.providerCard {
+  padding: 2rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.providerCard:hover {
+  border-color: #007bff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.2);
+}
+
+.selectedProvider {
+  border-color: #007bff;
+  background: #e7f3ff;
+}
+
+.providerLogo {
+  font-size: 3rem;
+}
+
+.providerName {
+  font-weight: 600;
+  color: #1a2a4d;
+  text-align: center;
+}
+
+.accountInput {
+  margin-bottom: 2rem;
+}
+
+.accountInput label {
+  display: block;
+  font-weight: 600;
+  color: #1a2a4d;
+  margin-bottom: 0.5rem;
+}
+
+.input {
+  width: 100%;
+  padding: 1rem;
+  font-size: 1rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  transition: border-color 0.3s ease;
+}
+
+.input:focus {
+  outline: none;
+  border-color: #007bff;
+}
+
+.helperText {
+  font-size: 0.85rem;
+  color: #666;
+  margin-top: 0.5rem;
+}
+
+.primaryButton {
+  width: 100%;
+  padding: 1.25rem;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.primaryButton:hover:not(:disabled) {
+  background: #0056b3;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+}
+
+.primaryButton:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.securityNote {
+  text-align: center;
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid #e0e0e0;
+}
+
+.securityNote p {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.processingAnimation {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 2rem;
+}
+
+.spinningIcon {
+  color: #007bff;
+  animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.statusUpdates {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin: 2rem 0;
+}
+
+.statusItem {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.checkIcon {
+  color: #28a745;
+}
+
+.clockIcon {
+  color: #007bff;
+}
+
+.estimatedTime {
+  text-align: center;
+  padding: 1.5rem;
+  background: #e7f3ff;
+  border-radius: 8px;
+  margin-top: 2rem;
+}
+
+.successIcon {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1rem;
+  color: #28a745;
+}
+
+.nftDisplay {
+  margin: 2rem 0;
+}
+
+.nftCard {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 2rem;
+  border-radius: 16px;
+  color: white;
+  margin-bottom: 2rem;
+}
+
+.nftHeader {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.nftHeader h3 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.scoreDisplay {
+  display: flex;
+  justify-content: center;
+  margin: 2rem 0;
+}
+
+.scoreCircle {
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  border: 6px solid;
+  background: white;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.scoreValue {
+  font-size: 3rem;
+  font-weight: 700;
+}
+
+.scoreLabel {
+  font-size: 0.8rem;
+  color: #666;
+}
+
+.nftStats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.nftStat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  backdrop-filter: blur(10px);
+}
+
+.statLabel {
+  font-size: 0.85rem;
+  margin-bottom: 0.5rem;
+  opacity: 0.9;
+}
+
+.statValue {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.scoreExplanation {
+  background: #f8f9fa;
+  padding: 1.5rem;
+  border-radius: 12px;
+  margin-bottom: 2rem;
+}
+
+.scoreExplanation h4 {
+  color: #1a2a4d;
+  margin-bottom: 1rem;
+}
+
+.scoreExplanation p {
+  color: #666;
+  line-height: 1.6;
+  margin-bottom: 1rem;
+}
+
+.nextSteps {
+  background: #e7f3ff;
+  padding: 1.5rem;
+  border-radius: 12px;
+  margin-bottom: 2rem;
+}
+
+.nextSteps h3 {
+  color: #1a2a4d;
+  margin-bottom: 1rem;
+}
+
+.nextSteps ul {
+  list-style: none;
+  padding: 0;
+}
+
+.nextSteps li {
+  padding: 0.5rem 0;
+  color: #666;
+  position: relative;
+  padding-left: 1.5rem;
+}
+
+.nextSteps li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  color: #28a745;
+  font-weight: 700;
+}
+
+.connectPrompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  text-align: center;
+  gap: 1rem;
+}
+
+.connectPrompt h2 {
+  color: #1a2a4d;
+  margin: 0;
+}
+
+.connectPrompt p {
+  color: #666;
+}

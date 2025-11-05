@@ -16,6 +16,9 @@ export default defineConfig(() => {
       }),
       wasm(),
     ],
+    css: {
+      postcss: "./postcss.config.cjs",
+    },
     build: {
       target: "esnext",
     },
