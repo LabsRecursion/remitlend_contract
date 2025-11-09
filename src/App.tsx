@@ -7,6 +7,7 @@ import LandingPage from "./pages/LandingPage.tsx";
 import BorrowerDashboard from "./pages/BorrowerDashboard.tsx";
 import LenderDashboard from "./pages/LenderDashboard.tsx";
 import VerificationFlow from "./pages/VerificationFlow.tsx";
+import { AdminPage } from "./pages/AdminPage.tsx";
 import { NotificationProvider } from "./components/NotificationSystem.tsx";
 
 const AppLayout: React.FC = () => (
@@ -50,6 +51,18 @@ const AppLayout: React.FC = () => (
               {({ isActive }) => (
                 <Button variant="tertiary" size="md" disabled={isActive}>
                   Lend
+                </Button>
+              )}
+            </NavLink>
+            <NavLink
+              to="/admin"
+              style={{
+                textDecoration: "none",
+              }}
+            >
+              {({ isActive }) => (
+                <Button variant="tertiary" size="md" disabled={isActive}>
+                  Admin
                 </Button>
               )}
             </NavLink>
@@ -100,6 +113,7 @@ function App() {
           <Route path="/verify" element={<VerificationFlow />} />
           <Route path="/borrow" element={<BorrowerDashboard />} />
           <Route path="/lend" element={<LenderDashboard />} />
+          <Route path="/admin" element={<AdminPage />} />
           <Route path="/debug" element={<Debugger />} />
           <Route path="/debug/:contractName" element={<Debugger />} />
         </Route>

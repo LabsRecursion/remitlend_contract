@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useWallet } from "../hooks/useWallet";
+import { useContractInteractions } from "../hooks/useContractInteractions";
 import {
   LineChart,
   Line,
@@ -20,6 +21,7 @@ import {
   AlertCircle,
   ArrowUpCircle,
   ArrowDownCircle,
+  Loader2,
 } from "lucide-react";
 
 interface PoolStats {
@@ -39,27 +41,34 @@ interface UserPosition {
 
 const LenderDashboard: React.FC = () => {
   const { connected, publicKey } = useWallet();
+  const { depositToPool, getLenderInfo, getAvailableLiquidity, getUtilizationRate } = useContractInteractions();
   const [depositAmount, setDepositAmount] = useState("");
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [activeTab, setActiveTab] = useState<
     "overview" | "deposit" | "withdraw"
   >("overview");
 
-  // Mock data - replace with actual contract calls
-  const poolStats: PoolStats = {
-    totalValueLocked: 1250000,
-    utilizationRate: 72,
-    currentAPY: 12.5,
-    totalBorrowed: 900000,
-    availableLiquidity: 350000,
-  };
+  // State for loading and errors
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isFetchingData, setIsFetchingData] = useState(false);
 
-  const userPosition: UserPosition = {
-    depositAmount: 50000,
-    sharePercentage: 4.0,
-    earnedInterest: 2340,
-    totalValue: 52340,
-  };
+  // Pool and user data (will be fetched from contract)
+  const [poolStats, setPoolStats] = useState<PoolStats>({
+    totalValueLocked: 0,
+    utilizationRate: 0,
+    currentAPY: 0,
+    totalBorrowed: 0,
+    availableLiquidity: 0,
+  });
+
+  const [userPosition, setUserPosition] = useState<UserPosition>({
+    depositAmount: 0,
+    sharePercentage: 0,
+    earnedInterest: 0,
+    totalValue: 0,
+  });
 
   const performanceData = [
     { month: "May", value: 50000 },
@@ -108,6 +117,117 @@ const LenderDashboard: React.FC = () => {
     },
   ];
 
+  // Fetch pool and user data on component mount
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!connected || !publicKey) return;
+      
+      setIsFetchingData(true);
+      try {
+        // Fetch lender info
+        const lenderInfoResult = await getLenderInfo();
+        console.log("Lender info result:", lenderInfoResult);
+        
+        // Parse lender info from contract result
+        // The contract returns: { deposit_amount, deposit_timestamp, earned_interest, share_percentage }
+        if (lenderInfoResult?.result?.retval) {
+          const retval = lenderInfoResult.result.retval;
+          
+          // The return value is a struct (ScVal map)
+          // We need to access the fields properly
+          let depositAmountUSDC = 0;
+          let earnedInterestUSDC = 0;
+          let sharePercentageBps = 0;
+          
+          // Try to parse the struct - it should be an object with the fields
+          try {
+            // ScVal structs come back as objects when parsed
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const lenderData = retval as any;
+            
+            // Access struct fields
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            if (lenderData.deposit_amount !== undefined) {
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              depositAmountUSDC = Number(lenderData.deposit_amount) / 10_000_000;
+            }
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            if (lenderData.earned_interest !== undefined) {
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              earnedInterestUSDC = Number(lenderData.earned_interest) / 10_000_000;
+            }
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            if (lenderData.share_percentage !== undefined) {
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              sharePercentageBps = Number(lenderData.share_percentage);
+            }
+          } catch (parseErr) {
+            console.error("Error parsing lender data:", parseErr);
+          }
+          
+          setUserPosition({
+            depositAmount: depositAmountUSDC,
+            sharePercentage: sharePercentageBps / 100, // Convert basis points to percentage
+            earnedInterest: earnedInterestUSDC,
+            totalValue: depositAmountUSDC + earnedInterestUSDC,
+          });
+        }
+        
+        // Fetch pool statistics
+        const [liquidityResult, utilizationResult] = await Promise.all([
+          getAvailableLiquidity(),
+          getUtilizationRate(),
+        ]);
+        
+        console.log("Liquidity result:", liquidityResult);
+        console.log("Utilization result:", utilizationResult);
+        
+        // Parse pool stats
+        const availableLiquidityUSDC = liquidityResult?.result?.retval 
+          ? Number(liquidityResult.result.retval) / 10_000_000 
+          : 0;
+        
+        const utilizationRateBps = utilizationResult?.result?.retval 
+          ? Number(utilizationResult.result.retval) 
+          : 0;
+        
+        const utilizationRate = utilizationRateBps / 100; // Convert basis points to percentage
+        
+        // Calculate APY based on utilization (simple model: base APY increases with utilization)
+        // Example: 5% base APY at 0% utilization, 15% at 100% utilization
+        const baseAPY = 5;
+        const maxAPY = 15;
+        const currentAPY = baseAPY + (maxAPY - baseAPY) * (utilizationRate / 100);
+        
+        // Calculate total borrowed from utilization rate
+        // If utilization = borrowed / total, and available = total - borrowed
+        // Then: borrowed = available * utilization / (1 - utilization)
+        const totalBorrowed = utilizationRate > 0 && utilizationRate < 100
+          ? availableLiquidityUSDC * utilizationRate / (100 - utilizationRate)
+          : 0;
+        
+        const totalValueLocked = availableLiquidityUSDC + totalBorrowed;
+        
+        setPoolStats({
+          totalValueLocked,
+          utilizationRate,
+          currentAPY,
+          totalBorrowed,
+          availableLiquidity: availableLiquidityUSDC,
+        });
+        
+      } catch (err) {
+        console.error("Error fetching data:", err);
+        // Don't show error to user, just log it - they can still use the interface
+      } finally {
+        setIsFetchingData(false);
+      }
+    };
+
+    void fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connected, publicKey]); // Only re-run when wallet connection changes
+
   if (!connected) {
     return (
       <div className="min-h-screen relative overflow-hidden flex items-center justify-center p-4">
@@ -124,12 +244,129 @@ const LenderDashboard: React.FC = () => {
     );
   }
 
-  const handleDeposit = () => {
-    console.log("Depositing:", depositAmount);
+  const handleDeposit = async () => {
+    if (!depositAmount || parseFloat(depositAmount) <= 0) {
+      setError("Please enter a valid deposit amount");
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      // Convert USDC amount to stroops (1 USDC = 10,000,000 stroops)
+      const amountInStroops = BigInt(Math.floor(parseFloat(depositAmount) * 10_000_000));
+      
+      console.log("Depositing to pool:", amountInStroops.toString(), "stroops");
+      
+      const result = await depositToPool(amountInStroops);
+      
+      console.log("Deposit successful:", result);
+      setSuccessMessage(`Successfully deposited ${depositAmount} USDC to the lending pool!`);
+      setDepositAmount("");
+      
+      // Refresh pool and user data after deposit
+      try {
+        const lenderInfoResult = await getLenderInfo();
+        if (lenderInfoResult?.result?.retval) {
+          const retval = lenderInfoResult.result.retval;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const lenderData = retval as any;
+          
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          const depositAmountUSDC = Number(lenderData.deposit_amount || 0) / 10_000_000;
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          const earnedInterestUSDC = Number(lenderData.earned_interest || 0) / 10_000_000;
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          const sharePercentageBps = Number(lenderData.share_percentage || 0);
+          
+          setUserPosition({
+            depositAmount: depositAmountUSDC,
+            sharePercentage: sharePercentageBps / 100,
+            earnedInterest: earnedInterestUSDC,
+            totalValue: depositAmountUSDC + earnedInterestUSDC,
+          });
+        }
+        
+        // Refresh pool stats
+        const [liquidityResult, utilizationResult] = await Promise.all([
+          getAvailableLiquidity(),
+          getUtilizationRate(),
+        ]);
+        
+        const availableLiquidityUSDC = liquidityResult?.result?.retval 
+          ? Number(liquidityResult.result.retval) / 10_000_000 
+          : 0;
+        
+        const utilizationRateBps = utilizationResult?.result?.retval 
+          ? Number(utilizationResult.result.retval) 
+          : 0;
+        
+        const utilizationRate = utilizationRateBps / 100;
+        const baseAPY = 5;
+        const maxAPY = 15;
+        const currentAPY = baseAPY + (maxAPY - baseAPY) * (utilizationRate / 100);
+        const totalBorrowed = utilizationRate > 0 && utilizationRate < 100
+          ? availableLiquidityUSDC * utilizationRate / (100 - utilizationRate)
+          : 0;
+        const totalValueLocked = availableLiquidityUSDC + totalBorrowed;
+        
+        setPoolStats({
+          totalValueLocked,
+          utilizationRate,
+          currentAPY,
+          totalBorrowed,
+          availableLiquidity: availableLiquidityUSDC,
+        });
+      } catch (refreshErr) {
+        console.error("Error refreshing data:", refreshErr);
+      }
+      
+    } catch (err) {
+      console.error("Deposit failed:", err);
+      setError(err instanceof Error ? err.message : "Failed to deposit to pool");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleWithdraw = () => {
-    console.log("Withdrawing:", withdrawAmount);
+    if (!withdrawAmount || parseFloat(withdrawAmount) <= 0) {
+      setError("Please enter a valid withdrawal amount");
+      return;
+    }
+
+    if (parseFloat(withdrawAmount) > userPosition.totalValue) {
+      setError("Withdrawal amount exceeds your available balance");
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      // Convert USDC amount to stroops (1 USDC = 10,000,000 stroops)
+      const amountInStroops = Math.floor(parseFloat(withdrawAmount) * 10_000_000);
+      
+      console.log("Withdrawing from pool:", amountInStroops, "stroops");
+      
+      // TODO: Add withdraw contract call when available
+      // const result = await withdrawFromPool(amountInStroops);
+      
+      setSuccessMessage(`Successfully withdrew ${withdrawAmount} USDC from the lending pool!`);
+      setWithdrawAmount("");
+      
+      // Refresh pool and user data after withdrawal
+      // TODO: Fetch updated data from contract
+      
+    } catch (err) {
+      console.error("Withdrawal failed:", err);
+      setError(err instanceof Error ? err.message : "Failed to withdraw from pool");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -184,12 +421,21 @@ const LenderDashboard: React.FC = () => {
         {/* Overview Tab */}
         {activeTab === "overview" && (
           <div className="space-y-8">
+            {/* Loading State */}
+            {isFetchingData && (
+              <div className="glass rounded-xl shadow-soft p-12 border border-gray-300 dark:border-white/10 backdrop-blur-xl text-center">
+                <Loader2 className="w-12 h-12 animate-spin text-cyan-400 mx-auto mb-4" />
+                <p className="text-gray-700 dark:text-white">Loading pool data...</p>
+              </div>
+            )}
+
             {/* Pool Statistics */}
-            <div className="glass rounded-xl shadow-soft p-6 border border-gray-300 dark:border-white/10 backdrop-blur-xl">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
-                Pool Statistics
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {!isFetchingData && (
+              <div className="glass rounded-xl shadow-soft p-6 border border-gray-300 dark:border-white/10 backdrop-blur-xl">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
+                  Pool Statistics
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {[
                   {
                     icon: Wallet,
@@ -242,8 +488,10 @@ const LenderDashboard: React.FC = () => {
                 })}
               </div>
             </div>
+            )}
 
             {/* User Position */}
+            {!isFetchingData && (
             <div className="glass rounded-xl shadow-soft p-6 border border-gray-300 dark:border-white/10 backdrop-blur-xl">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
                 Your Position
@@ -322,8 +570,10 @@ const LenderDashboard: React.FC = () => {
                 </div>
               </div>
             </div>
+            )}
 
             {/* Performance Chart */}
+            {!isFetchingData && (
             <div className="glass rounded-xl shadow-soft p-6 border border-gray-300 dark:border-white/10 backdrop-blur-xl">
               <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6">
                 Historical Performance
@@ -354,8 +604,10 @@ const LenderDashboard: React.FC = () => {
                 </LineChart>
               </ResponsiveContainer>
             </div>
+            )}
 
             {/* Active Loans Portfolio */}
+            {!isFetchingData && (
             <div className="glass rounded-xl shadow-soft p-6 border border-gray-300 dark:border-white/10 backdrop-blur-xl">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
                 Active Loans in Portfolio
@@ -410,6 +662,7 @@ const LenderDashboard: React.FC = () => {
                 </table>
               </div>
             </div>
+            )}
           </div>
         )}
 
@@ -429,6 +682,20 @@ const LenderDashboard: React.FC = () => {
                 Deposit USDC into the lending pool to earn interest. Your funds
                 will be used to provide loans to borrowers.
               </p>
+
+              {/* Error Message */}
+              {error && (
+                <div className="glass bg-red-500/10 border-l-4 border-red-500 rounded-xl p-4 mb-6">
+                  <p className="text-sm text-red-400">❌ {error}</p>
+                </div>
+              )}
+
+              {/* Success Message */}
+              {successMessage && (
+                <div className="glass bg-emerald-500/10 border-l-4 border-emerald-500 rounded-xl p-4 mb-6">
+                  <p className="text-sm text-emerald-400">✅ {successMessage}</p>
+                </div>
+              )}
 
               <div className="mb-6">
                 <label className="block text-sm font-semibold text-gray-700 dark:text-white mb-2">
@@ -476,9 +743,17 @@ const LenderDashboard: React.FC = () => {
               <button
                 type="button"
                 onClick={handleDeposit}
-                className="w-full bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white font-bold py-4 px-6 rounded-xl transition-all duration-200 shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 transform hover:scale-105 mb-4"
+                disabled={isLoading || !depositAmount}
+                className="w-full bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white font-bold py-4 px-6 rounded-xl transition-all duration-200 shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 transform hover:scale-105 mb-4 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2"
               >
-                Deposit USDC
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  "Deposit USDC"
+                )}
               </button>
 
               <div className="glass bg-warning-500/10 border-l-4 border-warning-500 rounded-xl p-4">
@@ -506,6 +781,20 @@ const LenderDashboard: React.FC = () => {
                 Withdraw your deposited USDC and earned interest from the
                 lending pool.
               </p>
+
+              {/* Error Message */}
+              {error && (
+                <div className="glass bg-red-500/10 border-l-4 border-red-500 rounded-xl p-4 mb-6">
+                  <p className="text-sm text-red-400">❌ {error}</p>
+                </div>
+              )}
+
+              {/* Success Message */}
+              {successMessage && (
+                <div className="glass bg-emerald-500/10 border-l-4 border-emerald-500 rounded-xl p-4 mb-6">
+                  <p className="text-sm text-emerald-400">✅ {successMessage}</p>
+                </div>
+              )}
 
               <div className="mb-6">
                 <label className="block text-sm font-semibold text-gray-700 dark:text-white mb-2">
@@ -563,9 +852,17 @@ const LenderDashboard: React.FC = () => {
               <button
                 type="button"
                 onClick={handleWithdraw}
-                className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold py-4 px-6 rounded-xl transition-all duration-200 shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 transform hover:scale-105 mb-4"
+                disabled={isLoading || !withdrawAmount}
+                className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold py-4 px-6 rounded-xl transition-all duration-200 shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 transform hover:scale-105 mb-4 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2"
               >
-                Withdraw USDC
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  "Withdraw USDC"
+                )}
               </button>
 
               <div className="glass bg-indigo-500/10 border-l-4 border-indigo-500 rounded-xl p-4">

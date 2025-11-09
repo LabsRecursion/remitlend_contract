@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useWallet } from "../hooks/useWallet";
-import { CheckCircle, Clock, AlertCircle, Award } from "lucide-react";
+import { useContractInteractions } from "../hooks/useContractInteractions";
+import { CheckCircle, Clock, AlertCircle, Award, Loader2 } from "lucide-react";
 
 type VerificationStep = "connect" | "processing" | "complete" | "failed";
 
@@ -16,11 +17,13 @@ interface VerificationData {
 
 const VerificationFlow: React.FC = () => {
   const { connected } = useWallet();
+  const { mintNFT, isLoading } = useContractInteractions();
   const [currentStep, setCurrentStep] = useState<VerificationStep>("connect");
   const [selectedProvider, setSelectedProvider] = useState("");
   const [accountId, setAccountId] = useState("");
   const [verificationData, setVerificationData] =
     useState<VerificationData | null>(null);
+  const [txHash] = useState<string>("");
 
   const providers = [
     { id: "wise", name: "Wise (TransferWise)", logo: "💳" },
@@ -29,13 +32,19 @@ const VerificationFlow: React.FC = () => {
     { id: "remitly", name: "Remitly", logo: "📱" },
   ];
 
-  const handleSubmitVerification = () => {
+  const handleSubmitVerification = async () => {
     if (!selectedProvider || !accountId) return;
 
     setCurrentStep("processing");
 
-    // Simulate verification process
-    setTimeout(() => {
+    try {
+      // In a real implementation, this would call the oracle_verifier contract
+      // to request verification first, then the oracle would call back to mint the NFT
+      
+      // Simulate oracle verification delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Mock verified data (in production, this comes from the oracle)
       const mockData: VerificationData = {
         provider: selectedProvider,
         accountId: accountId,
@@ -43,12 +52,50 @@ const VerificationFlow: React.FC = () => {
         historyMonths: 18,
         totalSent: 45000,
         reliabilityScore: 92,
-        nftTokenId: 1,
       };
 
-      setVerificationData(mockData);
+      // Mint the NFT on-chain
+      const result = await mintNFT({
+        monthlyAmount: BigInt(mockData.monthlyAmount * 10_000_000), // Convert to stroops
+        reliabilityScore: mockData.reliabilityScore,
+        historyMonths: mockData.historyMonths,
+        totalSent: BigInt(mockData.totalSent * 10_000_000), // Convert to stroops
+      });
+
+      console.log("Mint NFT result:", result);
+      
+      // Extract token ID from result
+      let tokenId = 1; // Default fallback
+      try {
+        if (result && 'returnValue' in result && result.returnValue) {
+          // Parse the return value (should be a u64)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const returnVal = result.returnValue as any;
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          if (returnVal._value) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            tokenId = Number(returnVal._value);
+          } else if (typeof returnVal === 'number') {
+            tokenId = returnVal;
+          } else if (typeof returnVal === 'string') {
+            tokenId = parseInt(returnVal);
+          }
+          console.log("Extracted token ID:", tokenId);
+        }
+      } catch (parseErr) {
+        console.error("Error parsing token ID:", parseErr);
+      }
+
+      setVerificationData({
+        ...mockData,
+        nftTokenId: tokenId,
+      });
+      
       setCurrentStep("complete");
-    }, 3000);
+    } catch (err) {
+      console.error("Verification failed:", err);
+      setCurrentStep("failed");
+    }
   };
 
   const getScoreColor = (score: number) => {
@@ -237,15 +284,22 @@ const VerificationFlow: React.FC = () => {
 
               <button
                 type="button"
-                className={`w-full py-4 px-6 rounded-xl font-bold text-white text-lg transition-all duration-200 ${
-                  !selectedProvider || !accountId
+                className={`w-full py-4 px-6 rounded-xl font-bold text-white text-lg transition-all duration-200 flex items-center justify-center gap-2 ${
+                  !selectedProvider || !accountId || isLoading
                     ? "bg-gray-200 dark:bg-white/10 cursor-not-allowed text-gray-500 dark:text-white"
                     : "bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 transform hover:scale-105"
                 }`}
-                onClick={handleSubmitVerification}
-                disabled={!selectedProvider || !accountId}
+                onClick={() => void handleSubmitVerification()}
+                disabled={!selectedProvider || !accountId || isLoading}
               >
-                Start Verification
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  "Start Verification"
+                )}
               </button>
 
               <div className="mt-6 glass bg-indigo-500/10 border-l-4 border-indigo-500 rounded-xl p-4">
@@ -430,6 +484,22 @@ const VerificationFlow: React.FC = () => {
                       </span>
                     </li>
                   </ul>
+                  
+                  {txHash && (
+                    <div className="mt-4 pt-4 border-t border-indigo-500/30">
+                      <p className="text-sm text-gray-700 dark:text-white mb-2">
+                        <strong>Transaction Hash:</strong>
+                      </p>
+                      <a
+                        href={`https://stellar.expert/explorer/testnet/tx/${txHash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-indigo-400 hover:text-indigo-300 break-all underline"
+                      >
+                        {txHash}
+                      </a>
+                    </div>
+                  )}
                 </div>
 
                 <button
@@ -440,6 +510,44 @@ const VerificationFlow: React.FC = () => {
                   }}
                 >
                   Apply for a Loan Now
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Failed Step */}
+        {currentStep === "failed" && (
+          <div className="max-w-2xl mx-auto">
+            <div className="glass rounded-2xl shadow-strong p-8 text-center border border-gray-300 dark:border-white/10 backdrop-blur-xl card-shine">
+              <AlertCircle className="w-20 h-20 text-error-500 mx-auto mb-6" />
+              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+                Verification Failed
+              </h2>
+              <p className="text-gray-700 dark:text-white text-lg mb-6">
+                {error?.message || "We couldn't verify your remittance history. Please try again or contact support."}
+              </p>
+              
+              <div className="glass bg-error-500/10 border border-error-500/30 rounded-xl p-4 mb-6">
+                <p className="text-error-400 text-sm">
+                  💡 Make sure you've entered the correct account ID and that you have remittance history with the selected provider.
+                </p>
+              </div>
+
+              <div className="flex gap-4">
+                <button
+                  type="button"
+                  className="flex-1 glass hover:bg-white/10 text-gray-900 dark:text-white font-semibold py-3 px-6 rounded-xl border-2 border-gray-300 dark:border-white/20 hover:border-indigo-500/50 transition-all duration-200"
+                  onClick={() => setCurrentStep("connect")}
+                >
+                  Try Again
+                </button>
+                <button
+                  type="button"
+                  className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 shadow-lg"
+                  onClick={() => window.location.href = "/"}
+                >
+                  Go Home
                 </button>
               </div>
             </div>

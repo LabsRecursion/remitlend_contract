@@ -72,7 +72,7 @@ rpc-url = "https://soroban-testnet.stellar.org"
 network-passphrase = "Test SDF Network ; September 2015"
 
 [[staging.accounts]]
-name = "testnet-user"
+name = "alice"
 default = true
 
 [staging.contracts]

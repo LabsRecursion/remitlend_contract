@@ -11,6 +11,11 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier . --write",
+    "build:contracts": "cargo build --release --target wasm32-unknown-unknown -p remittance_nft -p lending_pool -p loan_manager -p rmtlend",
+    "deploy:remittance_nft": "stellar contract deploy --wasm ./target/wasm32-unknown-unknown/release/remittance_nft.wasm --source alice --network testnet",
+    "deploy:lending_pool": "stellar contract deploy --wasm ./target/wasm32-unknown-unknown/release/lending_pool.wasm --source alice --network testnet",
+    "deploy:loan_manager": "stellar contract deploy --wasm ./target/wasm32-unknown-unknown/release/loan_manager.wasm --source alice --network testnet",
+    "deploy:rmtlend": "stellar contract deploy --wasm ./target/wasm32-unknown-unknown/release/rmtlend.wasm --source alice --network testnet",
     "prepare": "husky"
   },
   "workspaces": [
