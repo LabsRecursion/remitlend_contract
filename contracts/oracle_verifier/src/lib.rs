@@ -39,19 +39,19 @@ pub enum DataKey {
 
 mod remittance {
     soroban_sdk::contractimport!(
-        file = "../../target/stellar/local/remittance_nft.wasm"
+        file = "../../target/wasm32v1-none/release/remittance_nft.wasm"
     );
 }
 
 mod nft {
     soroban_sdk::contractimport!(
-        file = "../../target/stellar/local/remittance_nft.wasm"
+        file = "../../target/wasm32v1-none/release/remittance_nft.wasm"
     );
 }
 
 mod loan_manager {
     soroban_sdk::contractimport!(
-        file = "../../target/stellar/local/loan_manager.wasm"
+        file = "../../target/wasm32v1-none/release/loan_manager.wasm"
     );
 }
 
@@ -127,7 +127,7 @@ impl OracleVerifier {
         
         // In real implementation:
         let nft_client = remittance::Client::new(&env, &nft_contract);
-        let token_id = nft_client.mint(
+        let _token_id = nft_client.mint(
             &user,
             &monthly_amount,
             &reliability_score,
@@ -157,7 +157,6 @@ impl OracleVerifier {
     pub fn report_remittance(
         env: Env,
         operator: Address,
-        user: Address,
         nft_id: u64,
         amount: i128,
         loan_id: u64,

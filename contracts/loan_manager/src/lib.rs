@@ -8,13 +8,13 @@ use soroban_sdk::{
 
 mod nft {
     soroban_sdk::contractimport!(
-        file = "../../target/stellar/local/remittance_nft.wasm"
+        file = "../../target/wasm32v1-none/release/remittance_nft.wasm"
     );
 }
 
 mod pool {
     soroban_sdk::contractimport!(
-        file = "../../target/stellar/local/lending_pool.wasm"
+        file = "../../target/wasm32v1-none/release/lending_pool.wasm"
     ); 
 }
 
