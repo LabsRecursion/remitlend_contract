@@ -177,7 +177,7 @@ impl OracleVerifier {
             .instance()
             .get(&DataKey::RemittanceNFTContract)
             .unwrap();
-        let nft_client = nft::Client::new(&env, &nft_contract);
+        let nft_client = remittance::Client::new(&env, &nft_contract);
 
         nft_client.update_remittance_data(&nft_id, &amount, &0_i128);
 
@@ -206,7 +206,7 @@ impl OracleVerifier {
             .instance()
             .get(&DataKey::RemittanceNFTContract)
             .unwrap();
-        let nft_client = nft::Client::new(&env, &nft_contract);
+        let nft_client = remittance::Client::new(&env, &nft_contract);
 
         // nft_contract.mark_payment_missed(nft_id)
         nft_client.mark_payment_missed(&nft_id);

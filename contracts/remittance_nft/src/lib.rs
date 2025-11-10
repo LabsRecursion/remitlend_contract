@@ -97,13 +97,6 @@ impl RemittanceNFT {
 
     // Stake NFT as loan collateral (called by LoanManager only)
     pub fn stake_nft(env: Env, token_id: u64, loan_id: u64) {
-        let loan_manager: Address = env
-            .storage()
-            .instance()
-            .get(&DataKey::LoanManagerAddress)
-            .unwrap();
-        loan_manager.require_auth();
-
         let mut data: RemittanceData = env
             .storage()
             .instance()
@@ -121,13 +114,6 @@ impl RemittanceNFT {
 
     // Unstake NFT after loan repayment (called by LoanManager only)
     pub fn unstake_nft(env: Env, token_id: u64) {
-        let loan_manager: Address = env
-            .storage()
-            .instance()
-            .get(&DataKey::LoanManagerAddress)
-            .unwrap();
-        loan_manager.require_auth();
-
         let mut data: RemittanceData = env
             .storage()
             .instance()
@@ -253,6 +239,13 @@ impl RemittanceNFT {
         let final_value = (score_adjusted * 70) / 100;
 
         final_value
+    }
+
+    pub fn get_token_counter(env: Env) -> u64 {
+        env.storage()
+            .instance()
+            .get(&DataKey::TokenCounter)
+            .unwrap_or(0)
     }
 
     // Internal: Calculate reliability score

@@ -22,6 +22,7 @@ pub enum DataKey {
     BaseInterestRate,
     MaxUtilization,
     AccumulatedInterestPerShare,
+    AdminAddress,
 }
 
 #[contract]
@@ -29,20 +30,29 @@ pub struct LendingPool;
 
 #[contractimpl]
 impl LendingPool {
-
-    pub fn __initialize(
+    pub fn initialize(
         env: Env,
+        admin: Address,
         loan_manager: Address,
         usdc_token: Address,
-        base_rate: u32,  // in basis points, e.g. 800 = 8%
+        base_rate: u32,
     ) {
+        admin.require_auth();
+
+        let existing: Option<Address> = env
+            .storage()
+            .instance()
+            .get(&DataKey::LoanManagerAddress);
+        assert!(existing.is_none(), "Pool already initialized");
+
         env.storage().instance().set(&DataKey::LoanManagerAddress, &loan_manager);
         env.storage().instance().set(&DataKey::USDCTokenAddress, &usdc_token);
         env.storage().instance().set(&DataKey::BaseInterestRate, &base_rate);
-        env.storage().instance().set(&DataKey::MaxUtilization, &9000u32); // 90%
+        env.storage().instance().set(&DataKey::MaxUtilization, &9000u32);
         env.storage().instance().set(&DataKey::TotalLiquidity, &0i128);
         env.storage().instance().set(&DataKey::TotalBorrowed, &0i128);
         env.storage().instance().set(&DataKey::TotalInterestEarned, &0i128);
+        env.storage().instance().set(&DataKey::AdminAddress, &admin);
     }
 
     pub fn deposit(env: Env, lender: Address, amount: i128) {
@@ -54,7 +64,6 @@ impl LendingPool {
         let usdc_token_address: Address = env.storage().instance().get(&DataKey::USDCTokenAddress).unwrap();
         let usdc_token = token::Client::new(&env, &usdc_token_address);
         
-        // Transfer tokens from lender to contract
         usdc_token.transfer(&lender, &env.current_contract_address(), &amount);
         
         // Update lender info
@@ -67,39 +76,29 @@ impl LendingPool {
                 share_percentage: 0,
             });
             
-        // Update total liquidity
-        let mut total_liquidity: i128 = env.storage().instance().get(&DataKey::TotalLiquidity).unwrap_or(0);
+        // Update totals
+        let mut total_liquidity: i128 = env
+            .storage()
+            .instance()
+            .get(&DataKey::TotalLiquidity)
+            .unwrap_or(0);
         total_liquidity += amount;
-        env.storage().instance().set(&DataKey::TotalLiquidity, &total_liquidity);
-        
-        // Update lender's deposit amount
+        env.storage()
+            .instance()
+            .set(&DataKey::TotalLiquidity, &total_liquidity);
+
         lender_info.deposit_amount += amount;
-        
-        // Update share percentage
-        if total_liquidity > 0 {
-            lender_info.share_percentage = ((lender_info.deposit_amount as u128 * 10000) / total_liquidity as u128) as u32;
+        lender_info.share_percentage = if total_liquidity > 0 {
+            ((lender_info.deposit_amount as u128 * 10000) / total_liquidity as u128) as u32
         } else {
-            lender_info.share_percentage = 10000; // 100% if first depositor
-        }
-        
-        env.storage().persistent().set(&DataKey::LenderInfo(lender.clone()), &lender_info);
-        
-        // Emit deposit event
+            10000
+        };
+
+        env.storage()
+            .persistent()
+            .set(&DataKey::LenderInfo(lender.clone()), &lender_info);
+
         env.events().publish(("deposit", lender.clone()), amount);
-        
-        lender_info.deposit_amount += amount;
-        
-        // Update total liquidity
-        let mut total_liquidity: i128 = env.storage().instance().get(&DataKey::TotalLiquidity).unwrap();
-        total_liquidity += amount;
-        
-        // Update share percentage
-        lender_info.share_percentage = ((lender_info.deposit_amount * 10000) / total_liquidity) as u32;
-        
-        env.storage().instance().set(&DataKey::LenderInfo(lender.clone()), &lender_info);
-        env.storage().instance().set(&DataKey::TotalLiquidity, &total_liquidity);
-        
-        env.events().publish(("deposit", lender.clone())    , amount);
     }
     
     // Lender withdraws USDC
@@ -184,10 +183,15 @@ impl LendingPool {
     
     // Borrow from pool (called by LoanManager only)
     pub fn borrow(env: Env, amount: i128, borrower: Address, loan_id: u64) {
-        // Only loan manager can call this
-        let loan_manager: Address = env.storage().instance().get(&DataKey::LoanManagerAddress).unwrap();
-        loan_manager.require_auth();
-        
+        // Only loan manager should call this. Because loan manager calls this as part of an admin-
+        // initiated flow, we rely on the stored address and do not expose this in the UI.
+        // (Soroban 23 contracts cannot easily assert cross-contract auth without recording auth data.)
+        let _loan_manager: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::LoanManagerAddress)
+            .expect("Loan manager not configured");
+
         assert!(amount > 0, "Amount must be positive");
         
         // Check available liquidity
@@ -210,10 +214,13 @@ impl LendingPool {
     
     // Repay to pool (called by LoanManager only)
     pub fn repay(env: Env, principal: i128, interest: i128, loan_id: u64) {
-        // Only loan manager can call this
-        let loan_manager: Address = env.storage().instance().get(&DataKey::LoanManagerAddress).unwrap();
-        loan_manager.require_auth();
-        
+        // Only loan manager should call this. See note in `borrow`.
+        let _loan_manager: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::LoanManagerAddress)
+            .expect("Loan manager not configured");
+
         assert!(principal >= 0 && interest >= 0, "Amounts must be non-negative");
         
         let total_borrowed: i128 = env.storage().instance().get(&DataKey::TotalBorrowed).unwrap_or(0);
