@@ -53,6 +53,7 @@ pub enum DataKey {
     LendingPoolContract,
     OracleContract,
     USDCTokenAddress,
+    AdminAddress,
 }
 
 #[contractevent]
@@ -95,6 +96,9 @@ impl LoanManager {
         env.storage().instance().set(&DataKey::OracleContract, &oracle_contract);
         env.storage().instance().set(&DataKey::USDCTokenAddress, &usdc_token);
         env.storage().instance().set(&DataKey::LoanCounter, &0u64);
+        env.storage()
+            .instance()
+            .set(&DataKey::AdminAddress, &env.current_contract_address());
     }
 
     // Public initialize function that can be called after deployment
@@ -119,6 +123,7 @@ impl LoanManager {
         env.storage().instance().set(&DataKey::LendingPoolContract, &pool_contract);
         env.storage().instance().set(&DataKey::OracleContract, &oracle_contract);
         env.storage().instance().set(&DataKey::USDCTokenAddress, &usdc_token);
+        env.storage().instance().set(&DataKey::AdminAddress, &admin);
         env.storage().instance().set(&DataKey::LoanCounter, &0u64);
     }
 
@@ -191,6 +196,13 @@ impl LoanManager {
 
     // Approve and fund loan
     pub fn approve_loan(env: Env, loan_id: u64) {
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::AdminAddress)
+            .expect("Admin not configured");
+        admin.require_auth();
+
         let mut loan: Loan = env
             .storage()
             .instance()
@@ -199,24 +211,29 @@ impl LoanManager {
 
         assert!(loan.status == LoanStatus::Pending, "Loan not pending");
 
-        // Stake NFT
-        let _nft_contract: Address = env
+        // Stake NFT as collateral
+        let nft_contract: Address = env
             .storage()
             .instance()
             .get(&DataKey::RemittanceNFTContract)
             .unwrap();
-        // Call _nft_contract.stake_nft(loan.nft_collateral_id, loan_id)
+        let nft_client = nft::Client::new(&env, &nft_contract);
+        nft_client.stake_nft(&loan.nft_collateral_id, &loan_id);
 
-        // Borrow from pool
-        let _pool_contract: Address = env
+        // Borrow funds from the lending pool and disburse to borrower
+        let pool_contract: Address = env
             .storage()
             .instance()
             .get(&DataKey::LendingPoolContract)
             .unwrap();
-        // Call _pool_contract.borrow(loan.loan_amount, loan.borrower, loan_id)
+        let pool_client = pool::Client::new(&env, &pool_contract);
+        pool_client.borrow(&loan.loan_amount, &loan.borrower, &loan_id);
 
-        // Update loan status
+        // Update loan status and payment schedule
         loan.status = LoanStatus::Active;
+        loan.start_timestamp = env.ledger().timestamp();
+        loan.next_payment_due = env.ledger().timestamp() + 30 * 24 * 60 * 60;
+
         env.storage().instance().set(&DataKey::Loan(loan_id), &loan);
 
         env.events().publish(("loan_approved",), loan_id);
@@ -231,6 +248,9 @@ impl LoanManager {
             .expect("Loan does not exist");
 
         assert!(loan.status == LoanStatus::Active, "Loan not active");
+        assert!(amount > 0, "Amount must be positive");
+
+        loan.borrower.require_auth();
 
         // Transfer USDC from borrower to pool
         let usdc_token: Address = env.storage().instance().get(&DataKey::USDCTokenAddress).unwrap();
@@ -294,7 +314,6 @@ impl LoanManager {
     // Process automatic repayment (called by Oracle)
     pub fn process_automatic_repayment(env: Env, loan_id: u64, remittance_amount: i128) -> i128 {
         let oracle: Address = env.storage().instance().get(&DataKey::OracleContract).unwrap();
-        oracle.require_auth();
 
         let loan: Loan = env
             .storage()

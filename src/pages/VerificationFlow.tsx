@@ -24,6 +24,9 @@ const VerificationFlow: React.FC = () => {
   const [verificationData, setVerificationData] =
     useState<VerificationData | null>(null);
   const [txHash] = useState<string>("");
+  const [verificationError, setVerificationError] = useState<string | null>(
+    null,
+  );
 
   const providers = [
     { id: "wise", name: "Wise (TransferWise)", logo: "💳" },
@@ -36,22 +39,25 @@ const VerificationFlow: React.FC = () => {
     if (!selectedProvider || !accountId) return;
 
     setCurrentStep("processing");
+    setVerificationError(null);
 
     try {
       // In a real implementation, this would call the oracle_verifier contract
       // to request verification first, then the oracle would call back to mint the NFT
-      
+
       // Simulate oracle verification delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise((resolve) => setTimeout(resolve, 2000));
 
       // Mock verified data (in production, this comes from the oracle)
+      const reliabilityScore = 70 + Math.floor(Math.random() * 31); // 70-100 inclusive
+
       const mockData: VerificationData = {
         provider: selectedProvider,
         accountId: accountId,
         monthlyAmount: 2500,
         historyMonths: 18,
         totalSent: 45000,
-        reliabilityScore: 92,
+        reliabilityScore,
       };
 
       // Mint the NFT on-chain
@@ -63,25 +69,19 @@ const VerificationFlow: React.FC = () => {
       });
 
       console.log("Mint NFT result:", result);
-      
+
       // Extract token ID from result
       let tokenId = 1; // Default fallback
       try {
-        if (result && 'returnValue' in result && result.returnValue) {
-          // Parse the return value (should be a u64)
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const returnVal = result.returnValue as any;
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          if (returnVal._value) {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            tokenId = Number(returnVal._value);
-          } else if (typeof returnVal === 'number') {
-            tokenId = returnVal;
-          } else if (typeof returnVal === 'string') {
-            tokenId = parseInt(returnVal);
-          }
-          console.log("Extracted token ID:", tokenId);
+        const rawResult = result?.result;
+        if (typeof rawResult === "bigint") {
+          tokenId = Number(rawResult);
+        } else if (typeof rawResult === "number") {
+          tokenId = rawResult;
+        } else if (typeof rawResult === "string") {
+          tokenId = parseInt(rawResult, 10);
         }
+        console.log("Extracted token ID:", tokenId);
       } catch (parseErr) {
         console.error("Error parsing token ID:", parseErr);
       }
@@ -90,10 +90,20 @@ const VerificationFlow: React.FC = () => {
         ...mockData,
         nftTokenId: tokenId,
       });
-      
+
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(
+          "remitlend_last_nft_id",
+          tokenId.toString(),
+        );
+      }
+
       setCurrentStep("complete");
     } catch (err) {
       console.error("Verification failed:", err);
+      setVerificationError(
+        err instanceof Error ? err.message : "Unknown verification error",
+      );
       setCurrentStep("failed");
     }
   };
@@ -484,7 +494,7 @@ const VerificationFlow: React.FC = () => {
                       </span>
                     </li>
                   </ul>
-                  
+
                   {txHash && (
                     <div className="mt-4 pt-4 border-t border-indigo-500/30">
                       <p className="text-sm text-gray-700 dark:text-white mb-2">
@@ -525,12 +535,14 @@ const VerificationFlow: React.FC = () => {
                 Verification Failed
               </h2>
               <p className="text-gray-700 dark:text-white text-lg mb-6">
-                {error?.message || "We couldn't verify your remittance history. Please try again or contact support."}
+                {verificationError ??
+                  "We couldn't verify your remittance history. Please try again or contact support."}
               </p>
-              
+
               <div className="glass bg-error-500/10 border border-error-500/30 rounded-xl p-4 mb-6">
                 <p className="text-error-400 text-sm">
-                  💡 Make sure you've entered the correct account ID and that you have remittance history with the selected provider.
+                  💡 Make sure you've entered the correct account ID and that
+                  you have remittance history with the selected provider.
                 </p>
               </div>
 
@@ -538,14 +550,17 @@ const VerificationFlow: React.FC = () => {
                 <button
                   type="button"
                   className="flex-1 glass hover:bg-white/10 text-gray-900 dark:text-white font-semibold py-3 px-6 rounded-xl border-2 border-gray-300 dark:border-white/20 hover:border-indigo-500/50 transition-all duration-200"
-                  onClick={() => setCurrentStep("connect")}
+                  onClick={() => {
+                    setVerificationError(null);
+                    setCurrentStep("connect");
+                  }}
                 >
                   Try Again
                 </button>
                 <button
                   type="button"
                   className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 shadow-lg"
-                  onClick={() => window.location.href = "/"}
+                  onClick={() => (window.location.href = "/")}
                 >
                   Go Home
                 </button>

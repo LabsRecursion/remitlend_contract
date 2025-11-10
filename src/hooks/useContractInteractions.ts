@@ -3,9 +3,9 @@
  * Use this in your components for easy contract interactions
  */
 
-import { useState } from 'react';
-import { useWallet } from './useWallet';
-import * as contractInteractions from '../contracts/contractInteractions';
+import { useState } from "react";
+import { useWallet } from "./useWallet";
+import * as contractInteractions from "../contracts/contractInteractions";
 
 export function useContractInteractions() {
   const wallet = useWallet();
@@ -14,12 +14,12 @@ export function useContractInteractions() {
 
   const signTransaction = async (xdr: string): Promise<string> => {
     if (!wallet?.connected || !wallet.signTransaction) {
-      throw new Error('Wallet not connected');
+      throw new Error("Wallet not connected");
     }
 
     // Sign using the connected wallet
     const result = await wallet.signTransaction(xdr, {
-      networkPassphrase: wallet.networkPassphrase || '',
+      networkPassphrase: wallet.networkPassphrase || "",
     });
 
     return result.signedTxXdr;
@@ -37,7 +37,7 @@ export function useContractInteractions() {
     totalSent: bigint;
   }) => {
     if (!wallet?.publicKey) {
-      throw new Error('Wallet not connected');
+      throw new Error("Wallet not connected");
     }
 
     setIsLoading(true);
@@ -52,7 +52,7 @@ export function useContractInteractions() {
         historyMonths,
         totalSent,
       });
-      
+
       setIsLoading(false);
       return result;
     } catch (err) {
@@ -63,9 +63,80 @@ export function useContractInteractions() {
     }
   };
 
-  const depositToPool = async (amount: bigint) => {
+  const getLendingAllowance = async (): Promise<bigint> => {
     if (!wallet?.publicKey) {
-      throw new Error('Wallet not connected');
+      throw new Error("Wallet not connected");
+    }
+
+    try {
+      return await contractInteractions.fetchCurrentAllowance(wallet.publicKey);
+    } catch (err) {
+      const error = err as Error;
+      setError(error);
+      throw error;
+    }
+  };
+
+  const enableLendingAllowance = async (amount?: bigint): Promise<bigint> => {
+    if (!wallet?.publicKey) {
+      throw new Error("Wallet not connected");
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const approvedAmount =
+        await contractInteractions.enableLendingPoolAllowance({
+          publicKey: wallet.publicKey,
+          signTransaction,
+          amount,
+        });
+
+      setIsLoading(false);
+      return approvedAmount;
+    } catch (err) {
+      const error = err as Error;
+      setError(error);
+      setIsLoading(false);
+      throw error;
+    }
+  };
+
+  const mintTestUSDC = async ({
+    amount,
+    recipient,
+  }: {
+    amount: bigint;
+    recipient?: string;
+  }): Promise<unknown> => {
+    if (!wallet?.publicKey) {
+      throw new Error("Wallet not connected");
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const result = await contractInteractions.mintTestToken({
+        publicKey: wallet.publicKey,
+        signTransaction,
+        amount,
+        recipient,
+      });
+      setIsLoading(false);
+      return result as unknown;
+    } catch (err) {
+      const error = err as Error;
+      setError(error);
+      setIsLoading(false);
+      throw error;
+    }
+  };
+
+  const depositToPool = async (amount: bigint): Promise<unknown> => {
+    if (!wallet?.publicKey) {
+      throw new Error("Wallet not connected");
     }
 
     setIsLoading(true);
@@ -77,9 +148,34 @@ export function useContractInteractions() {
         signTransaction,
         amount,
       });
-      
+
       setIsLoading(false);
-      return result;
+      return result as unknown;
+    } catch (err) {
+      const error = err as Error;
+      setError(error);
+      setIsLoading(false);
+      throw error;
+    }
+  };
+
+  const withdrawFromPool = async (amount: bigint): Promise<unknown> => {
+    if (!wallet?.publicKey) {
+      throw new Error("Wallet not connected");
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const result = await contractInteractions.withdrawFromLendingPool({
+        publicKey: wallet.publicKey,
+        signTransaction,
+        amount,
+      });
+
+      setIsLoading(false);
+      return result as unknown;
     } catch (err) {
       const error = err as Error;
       setError(error);
@@ -96,9 +192,9 @@ export function useContractInteractions() {
     nftCollateralId: bigint;
     loanAmount: bigint;
     durationMonths: number;
-  }) => {
+  }): Promise<unknown> => {
     if (!wallet?.publicKey) {
-      throw new Error('Wallet not connected');
+      throw new Error("Wallet not connected");
     }
 
     setIsLoading(true);
@@ -112,9 +208,9 @@ export function useContractInteractions() {
         loanAmount,
         durationMonths,
       });
-      
+
       setIsLoading(false);
-      return result;
+      return result as unknown;
     } catch (err) {
       const error = err as Error;
       setError(error);
@@ -123,9 +219,66 @@ export function useContractInteractions() {
     }
   };
 
-  const getNFTData = async (tokenId: bigint) => {
+  const approveLoan = async (loanId: bigint): Promise<unknown> => {
     if (!wallet?.publicKey) {
-      throw new Error('Wallet not connected');
+      throw new Error("Wallet not connected");
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const result = await contractInteractions.approveLoan({
+        publicKey: wallet.publicKey,
+        signTransaction,
+        loanId,
+      });
+
+      setIsLoading(false);
+      return result as unknown;
+    } catch (err) {
+      const error = err as Error;
+      setError(error);
+      setIsLoading(false);
+      throw error;
+    }
+  };
+
+  const makeLoanPayment = async ({
+    loanId,
+    amount,
+  }: {
+    loanId: bigint;
+    amount: bigint;
+  }): Promise<unknown> => {
+    if (!wallet?.publicKey) {
+      throw new Error("Wallet not connected");
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const result = await contractInteractions.makeLoanPayment({
+        publicKey: wallet.publicKey,
+        signTransaction,
+        loanId,
+        amount,
+      });
+
+      setIsLoading(false);
+      return result as unknown;
+    } catch (err) {
+      const error = err as Error;
+      setError(error);
+      setIsLoading(false);
+      throw error;
+    }
+  };
+
+  const getNFTData = async (tokenId: bigint): Promise<unknown> => {
+    if (!wallet?.publicKey) {
+      throw new Error("Wallet not connected");
     }
 
     setIsLoading(true);
@@ -136,9 +289,9 @@ export function useContractInteractions() {
         tokenId,
         publicKey: wallet.publicKey,
       });
-      
+
       setIsLoading(false);
-      return result;
+      return result as unknown;
     } catch (err) {
       const error = err as Error;
       setError(error);
@@ -147,9 +300,9 @@ export function useContractInteractions() {
     }
   };
 
-  const getLoanDetails = async (loanId: bigint) => {
+  const getLoanDetails = async (loanId: bigint): Promise<unknown> => {
     if (!wallet?.publicKey) {
-      throw new Error('Wallet not connected');
+      throw new Error("Wallet not connected");
     }
 
     setIsLoading(true);
@@ -160,9 +313,9 @@ export function useContractInteractions() {
         loanId,
         publicKey: wallet.publicKey,
       });
-      
+
       setIsLoading(false);
-      return result;
+      return result as unknown;
     } catch (err) {
       const error = err as Error;
       setError(error);
@@ -171,11 +324,11 @@ export function useContractInteractions() {
     }
   };
 
-  const getLenderInfo = async (lenderAddress?: string) => {
+  const getLenderInfo = async (lenderAddress?: string): Promise<unknown> => {
     // For read-only operations, we only need a public key for the query
     const queryPublicKey = wallet?.publicKey || wallet?.address;
     if (!queryPublicKey) {
-      throw new Error('Wallet not connected');
+      throw new Error("Wallet not connected");
     }
 
     const address = lenderAddress || queryPublicKey;
@@ -185,8 +338,8 @@ export function useContractInteractions() {
         lenderAddress: address,
         publicKey: queryPublicKey,
       });
-      
-      return result;
+
+      return result as unknown;
     } catch (err) {
       const error = err as Error;
       setError(error);
@@ -194,19 +347,19 @@ export function useContractInteractions() {
     }
   };
 
-  const getAvailableLiquidity = async () => {
+  const getAvailableLiquidity = async (): Promise<unknown> => {
     // For read-only operations, we only need a public key for the query
     const queryPublicKey = wallet?.publicKey || wallet?.address;
     if (!queryPublicKey) {
-      throw new Error('Wallet not connected');
+      throw new Error("Wallet not connected");
     }
 
     try {
       const result = await contractInteractions.getAvailableLiquidity({
         publicKey: queryPublicKey,
       });
-      
-      return result;
+
+      return result as unknown;
     } catch (err) {
       const error = err as Error;
       setError(error);
@@ -214,19 +367,37 @@ export function useContractInteractions() {
     }
   };
 
-  const getUtilizationRate = async () => {
+  const getUtilizationRate = async (): Promise<unknown> => {
     // For read-only operations, we only need a public key for the query
     const queryPublicKey = wallet?.publicKey || wallet?.address;
     if (!queryPublicKey) {
-      throw new Error('Wallet not connected');
+      throw new Error("Wallet not connected");
     }
 
     try {
       const result = await contractInteractions.getUtilizationRate({
         publicKey: queryPublicKey,
       });
-      
-      return result;
+
+      return result as unknown;
+    } catch (err) {
+      const error = err as Error;
+      setError(error);
+      throw error;
+    }
+  };
+
+  const getTokenCounter = async (): Promise<unknown> => {
+    const queryPublicKey = wallet?.publicKey || wallet?.address;
+    if (!queryPublicKey) {
+      throw new Error("Wallet not connected");
+    }
+
+    try {
+      const result = await contractInteractions.getTokenCounter({
+        publicKey: queryPublicKey,
+      });
+      return result as unknown;
     } catch (err) {
       const error = err as Error;
       setError(error);
@@ -239,11 +410,18 @@ export function useContractInteractions() {
     error,
     mintNFT,
     depositToPool,
+    withdrawFromPool,
     requestLoan,
+    approveLoan,
+    makeLoanPayment,
     getNFTData,
     getLoanDetails,
     getLenderInfo,
     getAvailableLiquidity,
     getUtilizationRate,
+    getTokenCounter,
+    getLendingAllowance,
+    enableLendingAllowance,
+    mintTestUSDC,
   };
 }

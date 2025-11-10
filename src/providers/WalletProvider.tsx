@@ -115,12 +115,25 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
           });
         }
       } catch (e) {
-        // If `getNetwork` or `getAddress` throw errors... sign the user out???
-        nullify();
-        // then log the error (instead of throwing) so we have visibility
-        // into the error while working on Scaffold Stellar but we do not
-        // crash the app process
-        console.error(e);
+        const errorObject = e as { code?: number; message?: string };
+        const isTransientDisconnect =
+          errorObject?.code === -1 ||
+          errorObject?.code === -3 ||
+          (typeof errorObject?.message === "string" &&
+            errorObject.message.toLowerCase().includes("not connected"));
+
+        if (!isTransientDisconnect) {
+          // Unknown error – clear cached credentials
+          nullify();
+        }
+
+        if (isTransientDisconnect) {
+          // Wallet momentarily unavailable (e.g. Freighter tab not focused). Keep prior state and retry on next poll.
+          console.warn("Wallet temporarily unavailable; will retry.", e);
+        } else {
+          // Log unexpected errors for visibility without crashing the app
+          console.error(e);
+        }
       } finally {
         popupLock.current = false;
       }
